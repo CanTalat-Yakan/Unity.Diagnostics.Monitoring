@@ -108,3 +108,10 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 222328
+  packageName: Runtime Monitoring
+  packageVersion: 3.6.0
+  assetPath: Packages/com.baracuda.runtime-monitoring/Samples~/Example/Content/Platform.fbx
+  uploadId: 655543

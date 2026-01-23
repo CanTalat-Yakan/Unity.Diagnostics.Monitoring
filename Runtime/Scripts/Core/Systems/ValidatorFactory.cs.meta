@@ -9,3 +9,10 @@ MonoImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 222328
+  packageName: Runtime Monitoring
+  packageVersion: 3.6.0
+  assetPath: Packages/com.baracuda.runtime-monitoring/Runtime/Scripts/Core/Systems/ValidatorFactory.cs
+  uploadId: 655543

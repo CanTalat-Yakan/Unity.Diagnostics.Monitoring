@@ -35,3 +35,10 @@ TrueTypeFontImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 222328
+  packageName: Runtime Monitoring
+  packageVersion: 3.6.0
+  assetPath: Packages/com.baracuda.runtime-monitoring/Runtime/Resources/Monitoring/JetBrainsMono-SemiBold.ttf
+  uploadId: 655543

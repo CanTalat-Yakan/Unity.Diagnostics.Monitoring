@@ -26,7 +26,7 @@ namespace Baracuda.Monitoring.Editor
         /// <summary>
         ///   <para>Returns the relative callback order for callbacks.  Callbacks with lower values are called before ones with higher values.</para>
         /// </summary>
-        public int callbackOrder => Monitor.Settings != null ? Monitor.Settings.PreprocessBuildCallbackOrder : 0;
+        public int callbackOrder => Monitor.Settings.PreprocessBuildCallbackOrder;
 
         /// <summary>
         ///   <para>Implement this function to receive a callback before the build is started.</para>
@@ -34,14 +34,15 @@ namespace Baracuda.Monitoring.Editor
         /// <param name="report">A report containing information about the build, such as its target platform and output path.</param>
         public void OnPreprocessBuild(BuildReport report)
         {
-            if (Monitor.Settings == null)
-                return;
-
             if (!Monitor.Settings.UseIPreprocessBuildWithReport)
+            {
                 return;
+            }
 
             if (Monitor.Settings.IsEditorOnly)
+            {
                 return;
+            }
 
             var target = EditorUserBuildSettings.activeBuildTarget;
             var group = BuildPipeline.GetBuildTargetGroup(target);

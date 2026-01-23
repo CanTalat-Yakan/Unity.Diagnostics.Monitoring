@@ -28,3 +28,10 @@ TrueTypeFontImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 222328
+  packageName: Runtime Monitoring
+  packageVersion: 3.6.0
+  assetPath: Packages/com.baracuda.runtime-monitoring/Samples~/UIToolkit/Fonts/JetBrainsMono-Italic.ttf
+  uploadId: 655543

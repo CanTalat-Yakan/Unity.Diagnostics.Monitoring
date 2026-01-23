@@ -132,3 +132,10 @@ TextureImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 222328
+  packageName: Runtime Monitoring
+  packageVersion: 3.6.0
+  assetPath: Packages/com.baracuda.runtime-monitoring/Samples~/Example/Content/TEX_Crosshair.png
+  uploadId: 655543

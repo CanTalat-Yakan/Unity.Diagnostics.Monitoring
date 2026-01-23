@@ -1,6 +1,6 @@
 {
-    "name": "UnityEssentials.RuntimeMonitor",
-    "rootNamespace": "UnityEssentials",
+    "name": "baracuda.monitoring",
+    "rootNamespace": "",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
