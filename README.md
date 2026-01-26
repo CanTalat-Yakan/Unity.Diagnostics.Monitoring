@@ -41,7 +41,7 @@ Runtime Monitoring shows live values from your C# types while the game is runnin
   - Tools → Runtime Monitoring → Filter Window to filter and organize what’s shown
 - Attributes for display and behavior
   - Core marker: `[Monitor]` (or specific: `[MonitorField]`, `[MonitorProperty]`, `[MonitorEvent]`, `[MonitorMethod]`)
-  - Formatting and layout: `[MLabel]`, `[MFormat]`, `[MTextColor]`, `[MBackgroundColor]`, `[MGroupName]`, `[MGroupOrder]`, `[MGroupColor]`, `[MPosition]`, `[MOrder]`, `[MRichText]`, `[MFontName]`, `[MFontSize]`, `[MTextAlign]`, `[MElementIndent]`, `[MTag]`
+  - Formatting and layout: `[MLabel]`, `[MFormat]`, `[MTextColor]`, `[MBackgroundColor]`, `[MGroupName]`, `[MGroupOrder]`, `[MGroupColor]`, `[MPosition]`, `[MOrder]`, `[MRichText]`, `[MFontSize]`, `[MTextAlign]`, `[MElementIndent]`, `[MTag]`
   - Visibility and updates: `[MShowIf]`, `[MVisible]`, `[MUpdateEvent]`
   - Custom value renderers: `[MValueProcessor]` and global processors via `[GlobalValueProcessor]`
 - Helper base types for auto-registration

@@ -1,0 +1,17 @@
+{
+    "name": "UnityEssentials.RuntimeMonitor",
+    "rootNamespace": "UnityEssentials",
+    "references": [
+        "GUID:da0828d7586ab2507a0fa4326b0cf982",
+        "GUID:31005776ba0ea9c4bb2ee78cca2f6886"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
