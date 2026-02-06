@@ -1,21 +1,12 @@
 {
-  "name": "com.unityessentials.runtimemonitor",
-  "version": "1.0.0",
-  "displayName": "Unity Systems RuntimeMonitor",
+  "name": "com.unityessentials.diagnostics.monitoring",
+  "version": "2.0.0",
+  "displayName": "Systems Monitoring",
   "description": "This is a part of the UnityEssentials Ecosystem.\n\nRuntime Monitoring is an easy way for you to debug the state of your C# classes and objects during runtime.",
   "unity": "6000.0",
-  "unityRelease": null,
+  "unityRelease": "",
   "dependencies": {},
-  "keywords": [
-    "monitoring",
-    "runtime",
-    "debugging",
-    "debug",
-    "UI",
-    "source",
-    "utility",
-    "helper"
-  ],
+  "keywords": [],
   "author": {
     "name": "Unity Essentials",
     "email": "",
