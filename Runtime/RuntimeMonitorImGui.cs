@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using ImGuiNET;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -21,13 +22,30 @@ namespace UnityEssentials
         public static bool Enabled { get; set; } = true;
         public static float RefreshSeconds { get; set; } = DefaultRefreshSeconds;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticsForPlaySession()
+        {
+            // When "Enter Play Mode Options" disables Domain Reload, Unity keeps static state between play sessions.
+            // We must reset our own static flags/hook state so Install() runs and callbacks are re-registered.
+            _installed = false;
+            _nextRefreshTime = 0f;
+            Targets.Clear();
+            // Type plans are safe to keep, but can go stale if code changes; clear for correctness.
+            TypePlans.Clear();
+
+            SceneAutoRegisterHook.ForceResetHookStateForDomainReloadSafety();
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
-            if (_installed)
-                return;
+            // Don't early-out until we've ensured hooks are in place. With Domain Reload disabled,
+            // _installed can be stale and would prevent re-registering with the (new) ImGuiHost.
+            if (!_installed)
+                _installed = true;
 
-            _installed = true;
+            // Register is additive; remove first to avoid duplicate registrations if Install runs multiple times.
+            try { ImGuiHost.Unregister(DrawOverlay); } catch { }
             ImGuiHost.Register(DrawOverlay);
 
 #if UNITY_EDITOR
@@ -40,6 +58,7 @@ namespace UnityEssentials
 
             // Zero-setup behavior: always auto-register scene targets that contain [Monitor] members.
             SceneAutoRegisterHook.EnsureInstalled();
+            SceneAutoRegisterHook.TryScanAndRegisterNow();
         }
 
         /// <summary>
@@ -174,19 +193,19 @@ namespace UnityEssentials
 
         private static void DrawGroupWindow(OverlayGroup group)
         {
-            ImGuiNET.ImGui.SetNextWindowBgAlpha(0.35f);
+            ImGui.SetNextWindowBgAlpha(0.35f);
 
-            const ImGuiNET.ImGuiWindowFlags flags =
-                ImGuiNET.ImGuiWindowFlags.NoDecoration |
-                ImGuiNET.ImGuiWindowFlags.AlwaysAutoResize |
-                ImGuiNET.ImGuiWindowFlags.NoSavedSettings |
-                ImGuiNET.ImGuiWindowFlags.NoFocusOnAppearing |
-                ImGuiNET.ImGuiWindowFlags.NoNav;
+            const ImGuiWindowFlags flags =
+                ImGuiWindowFlags.NoDecoration |
+                ImGuiWindowFlags.AlwaysAutoResize |
+                ImGuiWindowFlags.NoSavedSettings |
+                ImGuiWindowFlags.NoFocusOnAppearing |
+                ImGuiWindowFlags.NoNav;
 
             // Use group name as window id so ImGui handles layout/persistence.
-            if (!ImGuiNET.ImGui.Begin(group.GroupName, flags))
+            if (!ImGui.Begin(group.GroupName, flags))
             {
-                ImGuiNET.ImGui.End();
+                ImGui.End();
                 return;
             }
 
@@ -195,13 +214,13 @@ namespace UnityEssentials
             {
                 var line = lines[i];
                 if (line.HadError)
-                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
+                    ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
                         $"{line.Label}: {line.Value}");
                 else
-                    ImGuiNET.ImGui.TextUnformatted($"{line.Label}: {line.Value}");
+                    ImGui.TextUnformatted($"{line.Label}: {line.Value}");
             }
 
-            ImGuiNET.ImGui.End();
+            ImGui.End();
         }
 
         private sealed class Target
@@ -279,10 +298,10 @@ namespace UnityEssentials
             public void DrawUi()
             {
                 if (_hadError)
-                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
+                    ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
                         $"{Entry.Label}: {_lastValue}");
                 else
-                    ImGuiNET.ImGui.TextUnformatted($"{Entry.Label}: {_lastValue}");
+                    ImGui.TextUnformatted($"{Entry.Label}: {_lastValue}");
             }
         }
 
@@ -464,28 +483,52 @@ namespace UnityEssentials
                 UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
             }
 
+            internal static void ForceResetHookStateForDomainReloadSafety()
+            {
+                // Best-effort: ensure we don't early-out on a stale _hooked flag.
+                // We'll re-subscribe on the next EnsureInstalled().
+                _hooked = false;
+            }
+
+            internal static void TryScanAndRegisterNow()
+            {
+                // If a scene is already loaded (common at play start), run a scan immediately so we don't depend on
+                // a future sceneLoaded event.
+                try
+                {
+                    var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                    if (!scene.IsValid() || !scene.isLoaded)
+                        return;
+
+                    ScanAndRegister();
+                }
+                catch { }
+            }
+
             private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene,
                 UnityEngine.SceneManagement.LoadSceneMode mode)
             {
-                try
-                {
-                    // Best-effort prune before re-registering.
-                    for (var i = Targets.Count - 1; i >= 0; i--)
-                        if (!Targets[i].IsAlive())
-                            Targets.RemoveAt(i);
-
-                    var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
-                    for (var i = 0; i < monoBehaviours.Length; i++)
-                    {
-                        var b = monoBehaviours[i];
-                        if (b == null) continue;
-                        var type = b.GetType();
-                        var plan = GetOrCreatePlan(type);
-                        if (plan.Entries.Count > 0)
-                            Register(b);
-                    }
-                }
+                try { ScanAndRegister(); }
                 catch (Exception) { }
+            }
+
+            private static void ScanAndRegister()
+            {
+                // Best-effort prune before re-registering.
+                for (var i = Targets.Count - 1; i >= 0; i--)
+                    if (!Targets[i].IsAlive())
+                        Targets.RemoveAt(i);
+
+                var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
+                for (var i = 0; i < monoBehaviours.Length; i++)
+                {
+                    var b = monoBehaviours[i];
+                    if (b == null) continue;
+                    var type = b.GetType();
+                    var plan = GetOrCreatePlan(type);
+                    if (plan.Entries.Count > 0)
+                        Register(b);
+                }
             }
         }
 
@@ -540,17 +583,22 @@ namespace UnityEssentials
             private static void OnBeforeAssemblyReload()
             {
                 // Domain reload: drop references so they don't survive between sessions.
-                Reset(clearTypePlans: true);
-                _installed = false;
+                Uninstall(clearTypePlans: true);
             }
 
             private static void OnPlayModeStateChanged(PlayModeStateChange change)
             {
-                // Clear immediately when leaving play mode (Unity may keep objects alive briefly).
+                // When leaving play mode (especially with Domain Reload disabled), ensure we fully unhook.
                 if (change == PlayModeStateChange.ExitingPlayMode)
                 {
-                    Reset(clearTypePlans: false);
-                    _nextRefreshTime = 0f;
+                    Uninstall(clearTypePlans: false);
+                    return;
+                }
+
+                // Entering play mode: ensure we have a clean install and a scan.
+                if (change == PlayModeStateChange.EnteredPlayMode)
+                {
+                    Install();
                 }
 
                 // Also clear when entering edit mode after play.
@@ -564,3 +612,4 @@ namespace UnityEssentials
 #endif
     }
 }
+
