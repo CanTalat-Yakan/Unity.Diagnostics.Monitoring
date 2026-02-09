@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace UnityEssentials
 {
     public static class RuntimeMonitorImGui
@@ -26,38 +30,52 @@ namespace UnityEssentials
             _installed = true;
             ImGuiHost.Register(DrawOverlay);
 
+#if UNITY_EDITOR
+            EditorPlayModeCleanupHook.EnsureInstalled();
+#endif
+
+            // Clear stale references on scene changes.
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnActiveSceneChanged;
+
             // Zero-setup behavior: always auto-register scene targets that contain [Monitor] members.
             SceneAutoRegisterHook.EnsureInstalled();
         }
 
-        public static void Register(object target)
+        /// <summary>
+        /// Removes all tracked targets (and optionally clears cached reflection plans). Safe to call multiple times.
+        /// </summary>
+        public static void Reset(bool clearTypePlans = false)
         {
-            if (target == null)
-                return;
-
-            var plan = GetOrCreatePlan(target.GetType());
-            if (plan.Entries.Count == 0)
-                return;
-
-            for (var i = 0; i < Targets.Count; i++)
-            {
-                if (ReferenceEquals(Targets[i].Instance, target))
-                    return;
-            }
-
-            Targets.Add(new Target(target, plan));
+            Targets.Clear();
+            _nextRefreshTime = 0f;
+            if (clearTypePlans)
+                TypePlans.Clear();
         }
 
-        public static void Unregister(object target)
+        /// <summary>
+        /// Fully uninstalls the overlay hook. Intended for domain reload / playmode transitions.
+        /// Safe to call multiple times.
+        /// </summary>
+        public static void Uninstall(bool clearTypePlans = false)
         {
-            if (target == null)
-                return;
+            if (_installed)
+                ImGuiHost.Unregister(DrawOverlay);
 
-            for (var i = Targets.Count - 1; i >= 0; i--)
-            {
-                if (ReferenceEquals(Targets[i].Instance, target))
-                    Targets.RemoveAt(i);
-            }
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+
+            SceneAutoRegisterHook.Uninstall();
+
+            Reset(clearTypePlans);
+            _installed = false;
+        }
+
+        private static void OnActiveSceneChanged(UnityEngine.SceneManagement.Scene previous,
+            UnityEngine.SceneManagement.Scene next)
+        {
+            // Remove all previous-scene targets. They may still be "alive" for a short moment,
+            // and keeping them would retain references and keep drawing stale overlays.
+            Reset(clearTypePlans: false);
         }
 
         private static void DrawOverlay()
@@ -114,7 +132,9 @@ namespace UnityEssentials
         }
 
         private static readonly List<OverlayGroup> _overlayGroups = new(16);
-        private static readonly Dictionary<string, List<(string Label, string Value, bool HadError)>> _overlayGroupMap = new(StringComparer.Ordinal);
+
+        private static readonly Dictionary<string, List<(string Label, string Value, bool HadError)>> _overlayGroupMap =
+            new(StringComparer.Ordinal);
 
         private static List<OverlayGroup> GetGroupedSnapshot()
         {
@@ -175,7 +195,8 @@ namespace UnityEssentials
             {
                 var line = lines[i];
                 if (line.HadError)
-                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f), $"{line.Label}: {line.Value}");
+                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
+                        $"{line.Label}: {line.Value}");
                 else
                     ImGuiNET.ImGui.TextUnformatted($"{line.Label}: {line.Value}");
             }
@@ -258,7 +279,8 @@ namespace UnityEssentials
             public void DrawUi()
             {
                 if (_hadError)
-                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f), $"{Entry.Label}: {_lastValue}");
+                    ImGuiNET.ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
+                        $"{Entry.Label}: {_lastValue}");
                 else
                     ImGuiNET.ImGui.TextUnformatted($"{Entry.Label}: {_lastValue}");
             }
@@ -309,7 +331,8 @@ namespace UnityEssentials
 
                         if (members[i] is FieldInfo field)
                         {
-                            if (field.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), true))
+                            if (field.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute),
+                                    true))
                                 continue;
 
                             entries.Add(Entry.ForField(field, attr));
@@ -393,7 +416,8 @@ namespace UnityEssentials
                 var order = attr.Order;
                 var format = attr.Format;
 
-                return new Entry(label, group, order, format, instance => field.GetValue(field.IsStatic ? null : instance));
+                return new Entry(label, group, order, format,
+                    instance => field.GetValue(field.IsStatic ? null : instance));
             }
 
             public static Entry ForProperty(PropertyInfo prop, MonitorAttribute attr)
@@ -413,7 +437,8 @@ namespace UnityEssentials
                 var order = attr.Order;
                 var format = attr.Format;
 
-                return new Entry(label, group, order, format, instance => method.Invoke(method.IsStatic ? null : instance, null));
+                return new Entry(label, group, order, format,
+                    instance => method.Invoke(method.IsStatic ? null : instance, null));
             }
         }
 
@@ -430,20 +455,31 @@ namespace UnityEssentials
                 UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
             }
 
-            private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+            public static void Uninstall()
+            {
+                if (!_hooked)
+                    return;
+
+                _hooked = false;
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            }
+
+            private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene,
+                UnityEngine.SceneManagement.LoadSceneMode mode)
             {
                 try
                 {
-                    var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+                    // Best-effort prune before re-registering.
+                    for (var i = Targets.Count - 1; i >= 0; i--)
+                        if (!Targets[i].IsAlive())
+                            Targets.RemoveAt(i);
+
+                    var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude);
                     for (var i = 0; i < behaviours.Length; i++)
                     {
                         var b = behaviours[i];
-                        if (b == null)
-                            continue;
-
+                        if (b == null) continue;
                         var type = b.GetType();
-
-
                         var plan = GetOrCreatePlan(type);
                         if (plan.Entries.Count > 0)
                             Register(b);
@@ -455,5 +491,79 @@ namespace UnityEssentials
                 }
             }
         }
+
+        public static void Register(object target)
+        {
+            if (target == null)
+                return;
+
+            var plan = GetOrCreatePlan(target.GetType());
+            if (plan.Entries.Count == 0)
+                return;
+
+            for (var i = 0; i < Targets.Count; i++)
+            {
+                if (ReferenceEquals(Targets[i].Instance, target))
+                    return;
+            }
+
+            Targets.Add(new Target(target, plan));
+        }
+
+        public static void Unregister(object target)
+        {
+            if (target == null)
+                return;
+
+            for (var i = Targets.Count - 1; i >= 0; i--)
+            {
+                if (ReferenceEquals(Targets[i].Instance, target))
+                    Targets.RemoveAt(i);
+            }
+        }
+
+#if UNITY_EDITOR
+        private static class EditorPlayModeCleanupHook
+        {
+            private static bool _hooked;
+
+            public static void EnsureInstalled()
+            {
+                if (_hooked)
+                    return;
+
+                _hooked = true;
+                EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+                EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
+                AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
+                AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            }
+
+            private static void OnBeforeAssemblyReload()
+            {
+                // Domain reload: drop references so they don't survive between sessions.
+                Reset(clearTypePlans: true);
+                _installed = false;
+            }
+
+            private static void OnPlayModeStateChanged(PlayModeStateChange change)
+            {
+                // Clear immediately when leaving play mode (Unity may keep objects alive briefly).
+                if (change == PlayModeStateChange.ExitingPlayMode)
+                {
+                    Reset(clearTypePlans: false);
+                    _nextRefreshTime = 0f;
+                }
+
+                // Also clear when entering edit mode after play.
+                if (change == PlayModeStateChange.EnteredEditMode)
+                {
+                    Reset(clearTypePlans: false);
+                    _nextRefreshTime = 0f;
+                }
+            }
+        }
+#endif
     }
 }
