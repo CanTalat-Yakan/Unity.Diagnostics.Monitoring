@@ -1,8 +1,10 @@
 {
-    "name": "UnityEssentials.RuntimeMonitor.Editor",
+    "name": "UnityEssentials.RuntimeMonitoring",
     "rootNamespace": "UnityEssentials",
     "references": [
-        "GUID:da0828d7586ab2507a0fa4326b0cf982"
+        "GUID:da0828d7586ab2507a0fa4326b0cf982",
+        "GUID:dec8fc344c4ac65a382ccf61a3d320fc",
+        "GUID:31005776ba0ea9c4bb2ee78cca2f6886"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

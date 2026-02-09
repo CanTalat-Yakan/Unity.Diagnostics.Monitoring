@@ -86,7 +86,6 @@ namespace UnityEssentials
                 return;
 
             // One simple window per group (no header/decoration), translucent bg.
-            // This keeps drawing cheap and mirrors the user’s requested style.
             var grouped = GetGroupedSnapshot();
             for (var i = 0; i < grouped.Count; i++)
                 DrawGroupWindow(grouped[i]);
@@ -435,12 +434,7 @@ namespace UnityEssentials
             {
                 try
                 {
-                    // Include inactive objects too; this matches DI-style scans and avoids confusion.
-#if UNITY_2023_1_OR_NEWER
                     var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
-#else
-                    var behaviours = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>(includeInactive: true);
-#endif
                     for (var i = 0; i < behaviours.Length; i++)
                     {
                         var b = behaviours[i];
