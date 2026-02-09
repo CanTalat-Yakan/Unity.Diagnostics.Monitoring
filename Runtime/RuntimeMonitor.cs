@@ -13,7 +13,7 @@ namespace UnityEssentials
         {
             try
             {
-                var monoBehaviours = RuntimeDiscovery.FindAllMonoBehaviours();
+                var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
                 for (var i = 0; i < monoBehaviours.Length; i++)
                 {
                     var mb = monoBehaviours[i];

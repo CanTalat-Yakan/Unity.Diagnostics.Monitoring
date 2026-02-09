@@ -474,10 +474,10 @@ namespace UnityEssentials
                         if (!Targets[i].IsAlive())
                             Targets.RemoveAt(i);
 
-                    var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude);
-                    for (var i = 0; i < behaviours.Length; i++)
+                    var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
+                    for (var i = 0; i < monoBehaviours.Length; i++)
                     {
-                        var b = behaviours[i];
+                        var b = monoBehaviours[i];
                         if (b == null) continue;
                         var type = b.GetType();
                         var plan = GetOrCreatePlan(type);
@@ -485,10 +485,7 @@ namespace UnityEssentials
                             Register(b);
                     }
                 }
-                catch (Exception)
-                {
-                    // ignored
-                }
+                catch (Exception) { }
             }
         }
 
