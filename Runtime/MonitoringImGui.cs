@@ -39,14 +39,8 @@ namespace UnityEssentials
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
-            // Don't early-out until we've ensured hooks are in place. With Domain Reload disabled,
-            // _installed can be stale and would prevent re-registering with the (new) ImGuiHost.
             if (!_installed)
                 _installed = true;
-
-            // Register is additive; remove first to avoid duplicate registrations if Install runs multiple times.
-            try { ImGuiHost.Unregister(DrawOverlay); } catch { }
-            ImGuiHost.Register(DrawOverlay);
 
 #if UNITY_EDITOR
             EditorPlayModeCleanupHook.EnsureInstalled();
@@ -73,13 +67,10 @@ namespace UnityEssentials
         }
 
         /// <summary>
-        /// Fully uninstalls the overlay hook. Intended for domain reload / playmode transitions.
-        /// Safe to call multiple times.
+        /// Fully uninstalls the overlay hook. Intended for domain reload / playmode transitions. Safe to call multiple times.
         /// </summary>
         public static void Uninstall(bool clearTypePlans = false)
         {
-            if (_installed)
-                ImGuiHost.Unregister(DrawOverlay);
 
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged -= OnActiveSceneChanged;
 
@@ -97,11 +88,11 @@ namespace UnityEssentials
             Reset(clearTypePlans: false);
         }
 
-        private static void DrawOverlay()
+        public static void DrawImGui()
         {
             if (!Enabled)
                 return;
-
+            
             var now = Time.unscaledTime;
             if (now >= _nextRefreshTime)
             {

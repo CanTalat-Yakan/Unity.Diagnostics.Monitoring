@@ -4,10 +4,11 @@ using UnityEngine;
 
 namespace UnityEssentials
 {
-    internal static class RuntimeMonitor
+    public class RuntimeMonitor : GlobalSingleton<RuntimeMonitor>
     {
-        private static readonly BindingFlags s_bindingFlags = RuntimeDiscovery.AllMembers;
-
+        private void Update() =>
+            RuntimeMonitorImGui.DrawImGui();
+        
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void OnAfterSceneLoad()
         {
@@ -59,7 +60,7 @@ namespace UnityEssentials
 
                 return false;
 
-            }, s_bindingFlags);
+            }, RuntimeDiscovery.AllMembers);
         }
     }
 }
