@@ -1,66 +1,85 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
 namespace UnityEssentials
 {
-    public class RuntimeMonitor : GlobalSingleton<RuntimeMonitor>
+    public class MonitoringHost : GlobalSingleton<MonitoringHost>
     {
+        /// <summary>
+        /// Cached targets + members built by the host. The ImGui layer only reads these.
+        /// </summary>
+        public static List<MonitorTarget> Targets = new();
+
         private void Update() =>
-            RuntimeMonitorImGui.DrawImGui();
-        
+            MonitoringImGui.DrawImGui();
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void OnAfterSceneLoad()
+        private static void FetchAndCacheTargets()
         {
-            try
+            Targets.Clear();
+            var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
+            for (var i = 0; i < monoBehaviours.Length; i++)
             {
-                var monoBehaviours = RuntimeDiscovery.AllMonoBehavioursCached;
-                for (var i = 0; i < monoBehaviours.Length; i++)
-                {
-                    var mb = monoBehaviours[i];
-                    if (mb == null) continue;
-                    if (!HasAnyMonitorMembers(mb)) continue;
-                    RuntimeMonitorImGui.Register(mb);
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[RuntimeMonitor] Auto registration failed: {e}");
+                var mb = monoBehaviours[i];
+                if (mb == null) continue;
+
+                var members = FetchMembersForType(mb.GetType());
+                if (members.Count == 0) continue;
+                Targets.Add(new MonitorTarget(mb, members));
             }
         }
 
-        private static bool HasAnyMonitorMembers(MonoBehaviour obj)
+        private static List<MonitorMember> FetchMembersForType(Type type)
         {
-            var type = obj.GetType();
+            var list = new List<MonitorMember>(16);
+            var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-            return RuntimeDiscovery.AnyMemberInHierarchy(type, member =>
+            var t = type;
+            while (t != null)
             {
-                if (RuntimeDiscovery.IsCompilerGenerated(member))
-                    return false;
-
-                // Fields
-                if (member is FieldInfo field)
-                    return RuntimeDiscovery.HasAttribute(field, typeof(MonitorAttribute), inherit: true);
-
-                // Properties
-                if (member is PropertyInfo prop)
+                var members = t.GetMembers(flags);
+                for (var i = 0; i < members.Length; i++)
                 {
-                    if (prop.GetIndexParameters().Length != 0) return false;
-                    return RuntimeDiscovery.HasAttribute(prop, typeof(MonitorAttribute), inherit: true);
+                    var member = members[i];
+                    if (RuntimeDiscovery.IsCompilerGenerated(member)) continue;
+
+                    var attr = member.GetCustomAttribute<MonitorAttribute>(true);
+                    if (attr == null) continue;
+
+                    if (member is FieldInfo field)
+                        list.Add(new MonitorMember(member, field, null, null, attr));
+                    else if (member is PropertyInfo prop)
+                    {
+                        if (prop.GetIndexParameters().Length != 0) continue;
+                        if (prop.GetGetMethod(true) == null) continue;
+                        list.Add(new MonitorMember(member, null, prop, null, attr));
+                    }
+                    else if (member is MethodInfo method)
+                    {
+                        if (method.IsGenericMethod) continue;
+                        if (method.GetParameters().Length != 0) continue;
+                        if (method.ReturnType == typeof(void)) continue;
+                        list.Add(new MonitorMember(member, null, null, method, attr));
+                    }
                 }
 
-                // Methods
-                if (member is MethodInfo method)
-                {
-                    if (method.IsGenericMethod) return false;
-                    if (method.GetParameters().Length != 0) return false;
-                    if (method.ReturnType == typeof(void)) return false;
-                    return RuntimeDiscovery.HasAttribute(method, typeof(MonitorAttribute), inherit: true);
-                }
+                t = t.BaseType;
+            }
 
-                return false;
+            list.Sort((a, b) =>
+            {
+                var groupCompare = string.CompareOrdinal(a.Group, b.Group);
+                if (groupCompare != 0) return groupCompare;
 
-            }, RuntimeDiscovery.AllMembers);
+                var orderCompare = a.Order.CompareTo(b.Order);
+                if (orderCompare != 0) return orderCompare;
+
+                return string.CompareOrdinal(a.Label, b.Label);
+            });
+
+            return list;
         }
     }
 }
