@@ -1,6 +1,6 @@
 {
   "name": "com.unityessentials.diagnostics.monitoring",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "displayName": "Systems Monitoring",
   "description": "This is a part of the UnityEssentials Ecosystem.\n\nRuntime Monitoring is an easy way for you to debug the state of your C# classes and objects during runtime.",
   "unity": "6000.0",
