@@ -1,5 +1,5 @@
 {
-    "name": "UnityEssentials.RuntimeMonitoring",
+    "name": "UnityEssentials.Diagnostics.Monitoring",
     "rootNamespace": "UnityEssentials",
     "references": [
         "GUID:da0828d7586ab2507a0fa4326b0cf982",
