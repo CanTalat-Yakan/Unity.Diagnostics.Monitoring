@@ -13,7 +13,7 @@ namespace UnityEssentials
         public static List<MonitorTarget> Targets = new();
 
         // Avoid duplicates across refreshes.
-        private static readonly Dictionary<int, MonitorTarget> s_targetMap = new();
+        private static readonly Dictionary<EntityId, MonitorTarget> s_targetMap = new();
 
         private void Update() =>
             MonitoringImGui.DrawImGui();
@@ -43,7 +43,7 @@ namespace UnityEssentials
                 if (!Targets[i].IsAlive())
                 {
                     if (Targets[i].TargetInstance is UnityEngine.Object uo)
-                        s_targetMap.Remove(uo.GetInstanceID());
+                        s_targetMap.Remove(uo.GetEntityId());
                     Targets.RemoveAt(i);
                 }
             }
@@ -65,7 +65,7 @@ namespace UnityEssentials
         {
             if (mb == null) return;
 
-            var id = mb.GetInstanceID();
+            var id = mb.GetEntityId();
             if (s_targetMap.ContainsKey(id))
                 return;
 

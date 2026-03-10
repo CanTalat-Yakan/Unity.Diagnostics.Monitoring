@@ -67,7 +67,7 @@ namespace UnityEssentials
             for (var t = 0; t < targets.Count; t++)
             {
                 var target = targets[t];
-                if (!target.IsAlive())
+                if (!target.IsVisibleInHierarchy())
                     continue;
 
                 var members = target.Members;

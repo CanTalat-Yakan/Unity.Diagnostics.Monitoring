@@ -22,6 +22,17 @@ namespace UnityEssentials
                 return uo != null;
             return TargetInstance != null;
         }
+
+        public bool IsVisibleInHierarchy()
+        {
+            if (TargetInstance is UnityEngine.MonoBehaviour mb)
+                return mb != null && mb.isActiveAndEnabled;
+
+            if (TargetInstance is UnityEngine.Behaviour behaviour)
+                return behaviour != null && behaviour.isActiveAndEnabled;
+
+            return IsAlive();
+        }
     }
 
     public readonly struct MonitorMember
