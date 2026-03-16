@@ -69,11 +69,16 @@ namespace UnityEssentials
             if (s_targetMap.ContainsKey(id))
                 return;
 
-            var members = FetchMembersForType(mb.GetType());
+            var type = mb.GetType();
+            var members = FetchMembersForType(type);
             if (members.Count == 0)
                 return;
 
-            var target = new MonitorTarget(mb, members);
+            var dockAttr = type.GetCustomAttribute<MonitorDockAttribute>(true);
+            var corner = dockAttr?.Corner ?? MonitorCorner.TopLeft;
+            var dockOrder = dockAttr?.Order ?? 0;
+
+            var target = new MonitorTarget(mb, members, corner, dockOrder);
             s_targetMap[id] = target;
             Targets.Add(target);
         }

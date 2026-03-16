@@ -37,4 +37,39 @@ namespace UnityEssentials
             Label = label;
         }
     }
+
+    /// <summary>
+    /// Screen corner used by <see cref="MonitorDockAttribute"/>.
+    /// </summary>
+    public enum MonitorCorner
+    {
+        TopLeft = 0,
+        TopRight,
+        BottomLeft,
+        BottomRight,
+    }
+
+    /// <summary>
+    /// Place on a MonoBehaviour class to dock its monitored members into a screen corner.
+    /// If omitted, the default is <see cref="MonitorCorner.TopLeft"/> with Order 0.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, Inherited = true)]
+    public sealed class MonitorDockAttribute : Attribute
+    {
+        /// <summary>
+        /// The screen corner this script's groups are docked to.
+        /// </summary>
+        public MonitorCorner Corner { get; }
+
+        /// <summary>
+        /// Sort priority among scripts in the same corner. Lower numbers are closer to the corner's anchor edge.
+        /// </summary>
+        public int Order { get; set; }
+
+        public MonitorDockAttribute(MonitorCorner corner = MonitorCorner.TopLeft, int order = 0)
+        {
+            Corner = corner;
+            Order = order;
+        }
+    }
 }

@@ -8,12 +8,17 @@ namespace UnityEssentials
         public readonly object TargetInstance;
         public readonly string TypeName;
         public readonly List<MonitorMember> Members;
+        public readonly MonitorCorner Corner;
+        public readonly int DockOrder;
 
-        public MonitorTarget(object instance, List<MonitorMember> members)
+        public MonitorTarget(object instance, List<MonitorMember> members,
+            MonitorCorner corner = MonitorCorner.TopLeft, int dockOrder = 0)
         {
             TargetInstance = instance;
             TypeName = instance != null ? instance.GetType().Name : "<null>";
             Members = members;
+            Corner = corner;
+            DockOrder = dockOrder;
         }
 
         public bool IsAlive()
