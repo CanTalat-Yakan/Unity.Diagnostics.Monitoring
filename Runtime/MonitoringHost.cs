@@ -97,6 +97,20 @@ namespace UnityEssentials
                     var member = members[i];
                     if (RuntimeDiscovery.IsCompilerGenerated(member)) continue;
 
+                    // Check for [MonitorGraph] first (takes priority over [Monitor]).
+                    var graphAttr = member.GetCustomAttribute<MonitorGraphAttribute>(true);
+                    if (graphAttr != null)
+                    {
+                        if (member is FieldInfo gf && typeof(MonitorGraphData).IsAssignableFrom(gf.FieldType))
+                            list.Add(new MonitorMember(member, gf, null, graphAttr));
+                        else if (member is PropertyInfo gp && typeof(MonitorGraphData).IsAssignableFrom(gp.PropertyType))
+                        {
+                            if (gp.GetIndexParameters().Length == 0 && gp.GetGetMethod(true) != null)
+                                list.Add(new MonitorMember(member, null, gp, graphAttr));
+                        }
+                        continue;
+                    }
+
                     var attr = member.GetCustomAttribute<MonitorAttribute>(true);
                     if (attr == null) continue;
 
@@ -120,16 +134,7 @@ namespace UnityEssentials
                 t = t.BaseType;
             }
 
-            list.Sort((a, b) =>
-            {
-                var groupCompare = string.CompareOrdinal(a.Group, b.Group);
-                if (groupCompare != 0) return groupCompare;
-
-                var orderCompare = a.Order.CompareTo(b.Order);
-                if (orderCompare != 0) return orderCompare;
-
-                return string.CompareOrdinal(a.Label, b.Label);
-            });
+            list.Sort((a, b) => a.Order.CompareTo(b.Order));
 
             return list;
         }

@@ -23,11 +23,6 @@ namespace UnityEssentials
         public string Group { get; set; }
 
         /// <summary>
-        /// Sort order within a group. Lower numbers show first.
-        /// </summary>
-        public int Order { get; set; }
-
-        /// <summary>
         /// Optional numeric format string used for IFormattable values (for example "0.00" or "F2").
         /// </summary>
         public string Format { get; set; }
@@ -66,10 +61,47 @@ namespace UnityEssentials
         /// </summary>
         public int Order { get; set; }
 
-        public MonitorDockAttribute(MonitorCorner corner = MonitorCorner.TopLeft, int order = 0)
+        public MonitorDockAttribute(MonitorCorner corner = MonitorCorner.TopLeft)
         {
             Corner = corner;
-            Order = order;
+        }
+    }
+
+    /// <summary>
+    /// Marks a field or property of type <see cref="MonitorGraphData"/> to be rendered as a live
+    /// line-plot graph in the monitoring overlay.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class MonitorGraphAttribute : Attribute
+    {
+        /// <summary>
+        /// Optional label shown above the graph. If omitted, the member name is used.
+        /// </summary>
+        public string Label { get; }
+
+        /// <summary>
+        /// Optional group name. If omitted, the declaring type name is used.
+        /// </summary>
+        public string Group { get; set; }
+
+        /// <summary>
+        /// Y-axis minimum value.
+        /// </summary>
+        public float Min { get; set; }
+
+        /// <summary>
+        /// Y-axis maximum value.
+        /// </summary>
+        public float Max { get; set; } = 50f;
+
+        /// <summary>
+        /// Graph height in pixels.
+        /// </summary>
+        public float Height { get; set; } = 25f;
+
+        public MonitorGraphAttribute(string label = null)
+        {
+            Label = label;
         }
     }
 }

@@ -21,31 +21,74 @@ namespace UnityEssentials
         private static readonly Dictionary<(MonitorCorner, string), OverlayGroupBuilder> _groupBuilders = new();
 
         /// <summary>
+        /// A single entry in an overlay group — either a text line or a graph.
+        /// </summary>
+        public readonly struct OverlayEntry
+        {
+            // Text mode
+            public readonly string Label;
+            public readonly string TextValue;
+            public readonly bool HadError;
+
+            // Graph mode
+            public readonly MonitorGraphData GraphData;
+            public readonly MonitorGraphAttribute GraphMeta;
+
+            public bool IsGraph => GraphData != null;
+
+            public OverlayEntry(string label, string textValue, bool hadError)
+            {
+                Label = label;
+                TextValue = textValue;
+                HadError = hadError;
+                GraphData = null;
+                GraphMeta = null;
+            }
+
+            public OverlayEntry(string label, MonitorGraphData graphData, MonitorGraphAttribute graphMeta)
+            {
+                Label = label;
+                TextValue = null;
+                HadError = false;
+                GraphData = graphData;
+                GraphMeta = graphMeta;
+            }
+        }
+
+        /// <summary>
         /// A pre-grouped snapshot to draw.
         /// </summary>
         public readonly struct OverlayGroup
         {
+            public readonly string Key;
             public readonly string GroupName;
             public readonly MonitorCorner Corner;
             public readonly int DockOrder;
-            public readonly List<(string Label, string Value, bool HadError)> Lines;
+            public readonly int MinGroupOrder;
+            public readonly List<OverlayEntry> Entries;
 
-            public OverlayGroup(string groupName, MonitorCorner corner, int dockOrder,
-                List<(string Label, string Value, bool HadError)> lines)
+            public OverlayGroup(string key, string groupName, MonitorCorner corner, int dockOrder,
+                int minGroupOrder, List<OverlayEntry> entries)
             {
+                Key = key;
                 GroupName = groupName;
                 Corner = corner;
                 DockOrder = dockOrder;
-                Lines = lines;
+                MinGroupOrder = minGroupOrder;
+                Entries = entries;
             }
         }
 
         private struct OverlayGroupBuilder
         {
+            public string DisplayName;
             public MonitorCorner Corner;
             public int DockOrder;
-            public List<(string Label, string Value, bool HadError)> Lines;
+            public int MinGroupOrder;
+            public List<OverlayEntry> Entries;
         }
+
+        private static float[] _graphScratch = new float[512];
 
         /// <summary>
         /// Called every frame by <see cref="MonitoringHost"/>.
@@ -106,50 +149,74 @@ namespace UnityEssentials
                 {
                     var member = members[m];
 
-                    var group = string.IsNullOrWhiteSpace(member.Group) ? target.TypeName : member.Group;
+                    var hasExplicitGroup = !string.IsNullOrWhiteSpace(member.Group);
+                    var displayName = hasExplicitGroup ? member.Group : member.Label;
 
-                    string valueStr;
-                    var hadError = false;
-                    try
-                    {
-                        var value = member.GetValue(target.TargetInstance);
-                        valueStr = FormatValue(value, member.Format);
-                    }
-                    catch
-                    {
-                        hadError = true;
-                        valueStr = "<error>";
-                    }
-
-                    var key = (target.Corner, group);
+                    // Only merge entries into the same window when they share an explicit Group name.
+                    // Without an explicit Group, each member gets its own standalone window.
+                    var keyGroup = hasExplicitGroup ? member.Group : $"{target.TypeName}::{member.Label}::{m}";
+                    var key = (target.Corner, keyGroup);
                     if (!_groupBuilders.TryGetValue(key, out var builder))
                     {
                         builder = new OverlayGroupBuilder
                         {
+                            DisplayName = displayName,
                             Corner = target.Corner,
                             DockOrder = target.DockOrder,
-                            Lines = new List<(string, string, bool)>(32),
+                            MinGroupOrder = member.GroupOrder,
+                            Entries = new List<OverlayEntry>(32),
                         };
                         _groupBuilders[key] = builder;
                     }
-                    else if (target.DockOrder < builder.DockOrder)
+                    else
                     {
-                        // Use the lowest DockOrder among contributors.
-                        builder.DockOrder = target.DockOrder;
+                        if (target.DockOrder < builder.DockOrder)
+                            builder.DockOrder = target.DockOrder;
+                        if (member.GroupOrder < builder.MinGroupOrder)
+                            builder.MinGroupOrder = member.GroupOrder;
                         _groupBuilders[key] = builder;
                     }
 
-                    builder.Lines.Add((member.Label, valueStr, hadError));
+                    if (member.IsGraph)
+                    {
+                        try
+                        {
+                            var graphData = member.GetValue(target.TargetInstance) as MonitorGraphData;
+                            if (graphData != null)
+                                builder.Entries.Add(new OverlayEntry(member.Label, graphData, member.GraphMeta));
+                        }
+                        catch
+                        {
+                            builder.Entries.Add(new OverlayEntry(member.Label, "<error>", true));
+                        }
+                    }
+                    else
+                    {
+                        string valueStr;
+                        var hadError = false;
+                        try
+                        {
+                            var value = member.GetValue(target.TargetInstance);
+                            valueStr = FormatValue(value, member.Format);
+                        }
+                        catch
+                        {
+                            hadError = true;
+                            valueStr = "<error>";
+                        }
+
+                        builder.Entries.Add(new OverlayEntry(member.Label, valueStr, hadError));
+                    }
                 }
             }
 
             foreach (var kvp in _groupBuilders)
             {
                 var b = kvp.Value;
-                _overlayGroups.Add(new OverlayGroup(kvp.Key.Item2, b.Corner, b.DockOrder, b.Lines));
+                _overlayGroups.Add(new OverlayGroup(kvp.Key.Item2, b.DisplayName, b.Corner, b.DockOrder, b.MinGroupOrder, b.Entries));
             }
 
-            // Sort: Corner → DockOrder → GroupName.
+            // Sort: Corner → DockOrder → declaration order (first member in group).
             _overlayGroups.Sort((a, b) =>
             {
                 var cc = ((int)a.Corner).CompareTo((int)b.Corner);
@@ -162,7 +229,7 @@ namespace UnityEssentials
                     : a.DockOrder.CompareTo(b.DockOrder);
                 if (oc != 0) return oc;
 
-                return string.CompareOrdinal(a.GroupName, b.GroupName);
+                return a.MinGroupOrder.CompareTo(b.MinGroupOrder);
             });
         }
 
@@ -205,8 +272,8 @@ namespace UnityEssentials
                 ImGuiWindowFlags.NoMove |
                 ImGuiWindowFlags.NoInputs;
 
-            // Use a unique window ID combining corner + group name to avoid collisions.
-            var windowId = $"{group.Corner}##{group.GroupName}";
+            // Use a unique window ID combining corner + key to avoid collisions.
+            var windowId = $"{group.Corner}##{group.Key}";
             if (!ImGui.Begin(windowId, flags))
             {
                 ImGui.End();
@@ -217,15 +284,37 @@ namespace UnityEssentials
             // ImGui.TextColored(new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1f), group.GroupName);
             // ImGui.Separator();
 
-            var lines = group.Lines;
-            for (var i = 0; i < lines.Count; i++)
+            var entries = group.Entries;
+            for (var i = 0; i < entries.Count; i++)
             {
-                var line = lines[i];
-                if (line.HadError)
+                var entry = entries[i];
+                if (entry.IsGraph)
+                {
+                    var gd = entry.GraphData;
+                    var gm = entry.GraphMeta;
+                    if (gd.Count > 0)
+                    {
+                        if (_graphScratch.Length < gd.Capacity)
+                            _graphScratch = new float[gd.Capacity];
+                        var n = gd.CopyLinearized(_graphScratch);
+
+                        // Remove the default frame background so only the plot line is visible.
+                        ImGui.PushStyleColor(ImGuiCol.FrameBg, new System.Numerics.Vector4(0, 0, 0, 0));
+                        var plotLabel = string.IsNullOrEmpty(entry.Label) ? " " : entry.Label;
+                        ImGui.PlotLines(plotLabel, ref _graphScratch[0], n, 0, null,
+                            gm.Min, gm.Max, new System.Numerics.Vector2(0, gm.Height));
+                        ImGui.PopStyleColor();
+                    }
+                }
+                else if (entry.HadError)
+                {
                     ImGui.TextColored(new System.Numerics.Vector4(1f, 0.3f, 0.3f, 1f),
-                        $"{line.Label}: {line.Value}");
+                        $"{entry.Label}: {entry.TextValue}");
+                }
                 else
-                    ImGui.TextUnformatted($"{line.Label}: {line.Value}");
+                {
+                    ImGui.TextUnformatted($"{entry.Label}: {entry.TextValue}");
+                }
             }
 
             var windowHeight = ImGui.GetWindowSize().Y;
