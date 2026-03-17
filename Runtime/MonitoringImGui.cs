@@ -10,6 +10,15 @@ namespace UnityEssentials
         public static bool Enabled { get; set; } = true;
         public static float RefreshSeconds { get; set; } = 0.25f;
 
+        /// <summary>
+        /// Extra padding added to each screen edge, pushing overlays inward.
+        /// Set by external modules (e.g. the FPS graph) that occupy edges of the screen.
+        /// </summary>
+        public static float LeftPadding { get; set; }
+        public static float TopPadding { get; set; }
+        public static float RightPadding { get; set; }
+        public static float BottomPadding { get; set; }
+
         private const float Padding = 10f;
         private const float Gap = 4f;
 
@@ -130,6 +139,11 @@ namespace UnityEssentials
                 var height = DrawGroupWindow(g, offset);
                 offset += height + Gap;
             }
+
+            LeftPadding = 0f;
+            TopPadding = 0f;
+            RightPadding = 0f;
+            BottomPadding = 0f;
         }
 
         private static void RebuildOverlayGroupsFromHostCache()
@@ -243,19 +257,19 @@ namespace UnityEssentials
             switch (group.Corner)
             {
                 default: // TopLeft
-                    pos = new System.Numerics.Vector2(workPos.X + Padding, workPos.Y + Padding + cornerOffset);
+                    pos = new System.Numerics.Vector2(workPos.X + Padding + LeftPadding, workPos.Y + Padding + TopPadding + cornerOffset);
                     pivot = new System.Numerics.Vector2(0f, 0f);
                     break;
                 case MonitorCorner.TopRight:
-                    pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding, workPos.Y + Padding + cornerOffset);
+                    pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding - RightPadding, workPos.Y + Padding + TopPadding + cornerOffset);
                     pivot = new System.Numerics.Vector2(1f, 0f);
                     break;
                 case MonitorCorner.BottomLeft:
-                    pos = new System.Numerics.Vector2(workPos.X + Padding, workPos.Y + workSize.Y - Padding - cornerOffset);
+                    pos = new System.Numerics.Vector2(workPos.X + Padding + LeftPadding, workPos.Y + workSize.Y - Padding - BottomPadding - cornerOffset);
                     pivot = new System.Numerics.Vector2(0f, 1f);
                     break;
                 case MonitorCorner.BottomRight:
-                    pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding, workPos.Y + workSize.Y - Padding - cornerOffset);
+                    pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding - RightPadding, workPos.Y + workSize.Y - Padding - BottomPadding - cornerOffset);
                     pivot = new System.Numerics.Vector2(1f, 1f);
                     break;
             }
