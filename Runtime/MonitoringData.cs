@@ -70,10 +70,8 @@ namespace UnityEssentials
 
             Label = string.IsNullOrWhiteSpace(attr.Label) ? member.Name : attr.Label;
             Group = attr.Group;
-            Order = member.MetadataToken;
-            GroupOrder = property != null ? property.GetGetMethod(true).MetadataToken
-                       : method != null ? method.MetadataToken
-                       : int.MaxValue;
+            Order = attr.SourceOrder;
+            GroupOrder = attr.SourceOrder;
             Format = attr.Format;
         }
 
@@ -87,8 +85,8 @@ namespace UnityEssentials
 
             Label = graphAttr.Label;
             Group = graphAttr.Group;
-            Order = member.MetadataToken;
-            GroupOrder = property != null ? property.GetGetMethod(true).MetadataToken : int.MaxValue;
+            Order = graphAttr.SourceOrder;
+            GroupOrder = graphAttr.SourceOrder;
             Format = null;
         }
 

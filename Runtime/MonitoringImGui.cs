@@ -233,15 +233,11 @@ namespace UnityEssentials
             // Sort: Corner → DockOrder → declaration order (first member in group).
             _overlayGroups.Sort((a, b) =>
             {
-                var cc = ((int)a.Corner).CompareTo((int)b.Corner);
-                if (cc != 0) return cc;
+                var cornerCmp = ((int)a.Corner).CompareTo((int)b.Corner);
+                if (cornerCmp != 0) return cornerCmp;
 
-                // For bottom corners, reverse DockOrder so lowest order is drawn last (closest to bottom edge).
-                var isBottom = a.Corner == MonitorCorner.BottomLeft || a.Corner == MonitorCorner.BottomRight;
-                var oc = isBottom
-                    ? b.DockOrder.CompareTo(a.DockOrder)
-                    : a.DockOrder.CompareTo(b.DockOrder);
-                if (oc != 0) return oc;
+                var dockCmp = a.DockOrder.CompareTo(b.DockOrder);
+                if (dockCmp != 0) return dockCmp;
 
                 return a.MinGroupOrder.CompareTo(b.MinGroupOrder);
             });

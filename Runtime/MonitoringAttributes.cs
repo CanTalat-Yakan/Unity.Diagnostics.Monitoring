@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace UnityEssentials
 {
@@ -27,9 +28,16 @@ namespace UnityEssentials
         /// </summary>
         public string Format { get; set; }
 
-        public MonitorAttribute(string label = null)
+        /// <summary>
+        /// Source line number of the attribute application, filled in automatically by the compiler.
+        /// Used to preserve declaration order across different metadata tables (fields vs properties).
+        /// </summary>
+        public int SourceOrder { get; }
+
+        public MonitorAttribute(string label = null, [CallerLineNumber] int sourceOrder = 0)
         {
             Label = label;
+            SourceOrder = sourceOrder;
         }
     }
 
@@ -99,9 +107,16 @@ namespace UnityEssentials
         /// </summary>
         public float Height { get; set; } = 25f;
 
-        public MonitorGraphAttribute(string label = null)
+        /// <summary>
+        /// Source line number of the attribute application, filled in automatically by the compiler.
+        /// Used to preserve declaration order across different metadata tables (fields vs properties).
+        /// </summary>
+        public int SourceOrder { get; }
+
+        public MonitorGraphAttribute(string label = null, [CallerLineNumber] int sourceOrder = 0)
         {
             Label = label;
+            SourceOrder = sourceOrder;
         }
     }
 }
