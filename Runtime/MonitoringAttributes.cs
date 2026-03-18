@@ -48,8 +48,13 @@ namespace UnityEssentials
     public enum MonitorCorner
     {
         TopLeft = 0,
+        TopCenter,
         TopRight,
+        CenterLeft,
+        Center,
+        CenterRight,
         BottomLeft,
+        BottomCenter,
         BottomRight,
     }
 

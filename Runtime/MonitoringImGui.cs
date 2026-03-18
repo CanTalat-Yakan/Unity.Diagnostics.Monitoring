@@ -10,10 +10,6 @@ namespace UnityEssentials
         public static bool Enabled { get; set; } = true;
         public static float RefreshSeconds { get; set; } = 0.25f;
 
-        /// <summary>
-        /// Extra padding added to each screen edge, pushing overlays inward.
-        /// Set by external modules (e.g. the FPS graph) that occupy edges of the screen.
-        /// </summary>
         public static float LeftPadding { get; set; }
         public static float TopPadding { get; set; }
         public static float RightPadding { get; set; }
@@ -122,28 +118,52 @@ namespace UnityEssentials
             if (_overlayGroups.Count == 0)
                 return;
 
-            // Track cumulative Y offset per corner.
-            float offsetTL = 0f, offsetTR = 0f, offsetBL = 0f, offsetBR = 0f;
+            // Track cumulative Y offset per dock anchor.
+            var offsets = new float[9];
 
-            for (var i = 0; i < _overlayGroups.Count; i++)
-            {
-                var g = _overlayGroups[i];
-                ref float offset = ref offsetTL;
-                switch (g.Corner)
-                {
-                    case MonitorCorner.TopRight: offset = ref offsetTR; break;
-                    case MonitorCorner.BottomLeft: offset = ref offsetBL; break;
-                    case MonitorCorner.BottomRight: offset = ref offsetBR; break;
-                }
+            DrawCornerGroups(MonitorCorner.TopLeft, reverse: false, ref offsets[(int)MonitorCorner.TopLeft]);
+            DrawCornerGroups(MonitorCorner.TopCenter, reverse: false, ref offsets[(int)MonitorCorner.TopCenter]);
+            DrawCornerGroups(MonitorCorner.TopRight, reverse: false, ref offsets[(int)MonitorCorner.TopRight]);
 
-                var height = DrawGroupWindow(g, offset);
-                offset += height + Gap;
-            }
+            DrawCornerGroups(MonitorCorner.CenterLeft, reverse: false, ref offsets[(int)MonitorCorner.CenterLeft]);
+            DrawCornerGroups(MonitorCorner.Center, reverse: false, ref offsets[(int)MonitorCorner.Center]);
+            DrawCornerGroups(MonitorCorner.CenterRight, reverse: false, ref offsets[(int)MonitorCorner.CenterRight]);
+
+            DrawCornerGroups(MonitorCorner.BottomLeft, reverse: true, ref offsets[(int)MonitorCorner.BottomLeft]);
+            DrawCornerGroups(MonitorCorner.BottomCenter, reverse: true, ref offsets[(int)MonitorCorner.BottomCenter]);
+            DrawCornerGroups(MonitorCorner.BottomRight, reverse: true, ref offsets[(int)MonitorCorner.BottomRight]);
 
             LeftPadding = 0f;
             TopPadding = 0f;
             RightPadding = 0f;
             BottomPadding = 0f;
+        }
+
+        private static void DrawCornerGroups(MonitorCorner corner, bool reverse, ref float offset)
+        {
+            if (!reverse)
+            {
+                for (var i = 0; i < _overlayGroups.Count; i++)
+                {
+                    var g = _overlayGroups[i];
+                    if (g.Corner != corner)
+                        continue;
+
+                    var height = DrawGroupWindow(g, offset);
+                    offset += height + Gap;
+                }
+                return;
+            }
+
+            for (var i = _overlayGroups.Count - 1; i >= 0; i--)
+            {
+                var g = _overlayGroups[i];
+                if (g.Corner != corner)
+                    continue;
+
+                var height = DrawGroupWindow(g, offset);
+                offset += height + Gap;
+            }
         }
 
         private static void RebuildOverlayGroupsFromHostCache()
@@ -256,13 +276,33 @@ namespace UnityEssentials
                     pos = new System.Numerics.Vector2(workPos.X + Padding + LeftPadding, workPos.Y + Padding + TopPadding + cornerOffset);
                     pivot = new System.Numerics.Vector2(0f, 0f);
                     break;
+                case MonitorCorner.TopCenter:
+                    pos = new System.Numerics.Vector2(workPos.X + (workSize.X * 0.5f), workPos.Y + Padding + TopPadding + cornerOffset);
+                    pivot = new System.Numerics.Vector2(0.5f, 0f);
+                    break;
                 case MonitorCorner.TopRight:
                     pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding - RightPadding, workPos.Y + Padding + TopPadding + cornerOffset);
                     pivot = new System.Numerics.Vector2(1f, 0f);
                     break;
+                case MonitorCorner.CenterLeft:
+                    pos = new System.Numerics.Vector2(workPos.X + Padding + LeftPadding, workPos.Y + (workSize.Y * 0.5f) + cornerOffset);
+                    pivot = new System.Numerics.Vector2(0f, 0.5f);
+                    break;
+                case MonitorCorner.Center:
+                    pos = new System.Numerics.Vector2(workPos.X + (workSize.X * 0.5f), workPos.Y + (workSize.Y * 0.5f) + cornerOffset);
+                    pivot = new System.Numerics.Vector2(0.5f, 0.5f);
+                    break;
+                case MonitorCorner.CenterRight:
+                    pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding - RightPadding, workPos.Y + (workSize.Y * 0.5f) + cornerOffset);
+                    pivot = new System.Numerics.Vector2(1f, 0.5f);
+                    break;
                 case MonitorCorner.BottomLeft:
                     pos = new System.Numerics.Vector2(workPos.X + Padding + LeftPadding, workPos.Y + workSize.Y - Padding - BottomPadding - cornerOffset);
                     pivot = new System.Numerics.Vector2(0f, 1f);
+                    break;
+                case MonitorCorner.BottomCenter:
+                    pos = new System.Numerics.Vector2(workPos.X + (workSize.X * 0.5f), workPos.Y + workSize.Y - Padding - BottomPadding - cornerOffset);
+                    pivot = new System.Numerics.Vector2(0.5f, 1f);
                     break;
                 case MonitorCorner.BottomRight:
                     pos = new System.Numerics.Vector2(workPos.X + workSize.X - Padding - RightPadding, workPos.Y + workSize.Y - Padding - BottomPadding - cornerOffset);
@@ -302,19 +342,29 @@ namespace UnityEssentials
                 {
                     var gd = entry.GraphData;
                     var gm = entry.GraphMeta;
-                    if (gd.Count > 0)
-                    {
-                        if (_graphScratch.Length < gd.Capacity)
-                            _graphScratch = new float[gd.Capacity];
-                        var n = gd.CopyLinearized(_graphScratch);
+                    if (_graphScratch.Length < gd.Capacity)
+                        _graphScratch = new float[gd.Capacity];
 
-                        // Remove the default frame background so only the plot line is visible.
-                        ImGui.PushStyleColor(ImGuiCol.FrameBg, new System.Numerics.Vector4(0, 0, 0, 0));
-                        var plotLabel = string.IsNullOrEmpty(entry.Label) ? " " : entry.Label;
-                        ImGui.PlotLines(plotLabel, ref _graphScratch[0], n, 0, null,
-                            gm.Min, gm.Max, new System.Numerics.Vector2(0, gm.Height));
-                        ImGui.PopStyleColor();
+                    var n = gd.CopyLinearized(_graphScratch);
+                    var plotCount = gd.Capacity;
+
+                    if (n <= 0)
+                    {
+                        Array.Fill(_graphScratch, gm.Min, 0, plotCount);
                     }
+                    else if (n < plotCount)
+                    {
+                        var baselineCount = plotCount - n;
+                        Array.Copy(_graphScratch, 0, _graphScratch, baselineCount, n);
+                        Array.Fill(_graphScratch, gm.Min, 0, baselineCount);
+                    }
+
+                    // Remove the default frame background so only the plot line is visible.
+                    ImGui.PushStyleColor(ImGuiCol.FrameBg, new System.Numerics.Vector4(0, 0, 0, 0));
+                    var plotLabel = string.IsNullOrEmpty(entry.Label) ? " " : entry.Label;
+                    ImGui.PlotLines(plotLabel, ref _graphScratch[0], plotCount, 0, null,
+                        gm.Min, gm.Max, new System.Numerics.Vector2(0, gm.Height));
+                    ImGui.PopStyleColor();
                 }
                 else if (entry.HadError)
                 {
